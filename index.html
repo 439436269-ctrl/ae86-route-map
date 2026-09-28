@@ -1,0 +1,376 @@
+<!-- AI生成 -->
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>一路向北 · 《头文字D》AE86 秋名山决战路线图（榛名山实地）</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.css">
+<style>
+:root{
+  --bg:#0B0E13; --land:#151B23; --line:#28303B; --ink:#EFEAE0; --mut:#8E97A3;
+  --red:#E8452F; --red-dim:#57251E; --white:#DCE3EA; --card:#12161D;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.6 -apple-system,'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif;overflow:hidden}
+#map{position:absolute;inset:0}
+.maplibregl-canvas{outline:none}
+/* --- 标题卡 --- */
+#hd{position:absolute;top:14px;left:14px;z-index:20;max-width:360px;
+  background:rgba(12,15,20,.88);border:1px solid var(--line);border-radius:14px;
+  padding:14px 16px 12px;backdrop-filter:blur(8px)}
+#hd h1{font-size:16px;font-weight:700;letter-spacing:.5px}
+#hd h1 em{font-style:normal;color:var(--red)}
+#hd .sub{font-size:12px;color:var(--mut);margin-top:3px}
+#hd .sub b{color:var(--ink);font-weight:600}
+#hd .legend{margin-top:9px;padding-top:9px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--mut);display:flex;flex-direction:column;gap:4px}
+#hd .legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+#hd .legend .r i{background:var(--red)}
+#hd .legend .w i{background:transparent;border:2px solid var(--white)}
+#hd .legend .l{margin-top:2px}
+#hd .legend .l i{height:0;border-radius:2px;border:none;border-top:2px solid var(--red);width:12px;vertical-align:3px}
+#hd .hint{margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:11px;color:var(--mut)}
+#hd .hint a{color:var(--red);text-decoration:none;border-bottom:1px dashed rgba(232,69,47,.4)}
+/* --- 控件 --- */
+#ctls{position:absolute;top:14px;right:14px;z-index:20;display:flex;gap:8px}
+.btn{cursor:pointer;user-select:none;background:rgba(12,15,20,.88);border:1px solid var(--line);
+  color:var(--ink);border-radius:10px;padding:8px 13px;font-size:13px;display:flex;align-items:center;gap:6px;
+  transition:border-color .15s,background .15s}
+.btn:hover{border-color:var(--red);background:rgba(30,36,45,.92)}
+.btn.on{border-color:var(--red);color:var(--red)}
+/* --- 节点卡 --- */
+#card{position:absolute;top:70px;right:14px;bottom:96px;width:min(350px,calc(100vw - 28px));z-index:25;
+  background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+  display:flex;flex-direction:column;
+  transform:translateX(calc(100% + 30px));transition:transform .38s cubic-bezier(.22,.9,.3,1);
+  box-shadow:0 12px 40px rgba(0,0,0,.5)}
+#card.open{transform:none}
+#card .cover{position:relative;min-height:118px;flex:none;display:flex;align-items:flex-end;padding:12px 16px 10px;
+  background:linear-gradient(135deg,#26141A 0%,#10151C 78%);
+  overflow:hidden}
+#card .cover.place{background:linear-gradient(135deg,#152230 0%,#10151C 78%)}
+#card .cover::after{content:'';position:absolute;right:-30px;top:-30px;width:130px;height:130px;border-radius:50%;
+  background:radial-gradient(circle,rgba(232,69,47,.16),transparent 70%)}
+#card .cover.place::after{background:radial-gradient(circle,rgba(220,227,234,.10),transparent 70%)}
+#card .cover .big{font-size:30px;font-weight:800;letter-spacing:1px;color:var(--red);line-height:1.15;
+  text-shadow:0 2px 18px rgba(0,0,0,.55);position:relative}
+#card .cover.place .big{color:var(--white);font-size:24px}
+#card .cover .big small{display:block;font-size:12px;font-weight:600;color:var(--mut);letter-spacing:2px;margin-bottom:3px}
+#card .cover .no{position:absolute;left:12px;top:12px;background:rgba(12,15,20,.82);border:1px solid var(--line);
+  border-radius:8px;padding:2px 9px;font-size:12px;color:var(--red);font-weight:700;letter-spacing:1px}
+#card .cover .no.place{color:var(--white)}
+#card .bd{padding:14px 16px 16px;overflow-y:auto}
+#card .meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+#card .meta span{font-size:11.5px;color:var(--mut);background:#0D1218;border:1px solid var(--line);border-radius:6px;padding:1px 8px}
+#card .meta span.win{color:#FFD9CF;border-color:rgba(232,69,47,.5)}
+#card h2{font-size:15.5px;line-height:1.5;font-weight:650}
+#card .loc{margin-top:8px;font-size:13px;color:var(--ink);display:flex;align-items:center;gap:7px}
+#card .loc i{width:8px;height:8px;border-radius:50%;flex:none;background:var(--red)}
+#card .loc.p i{background:transparent;border:2px solid var(--white)}
+#card .note{margin-top:8px;font-size:12px;color:var(--mut);background:#0D1218;border-left:2px solid var(--red-dim);padding:6px 10px;border-radius:0 8px 8px 0}
+#card .go{margin-top:14px;display:flex;gap:8px}
+#card .go a{text-align:center;text-decoration:none;background:var(--red);color:#16060A;
+  font-weight:700;font-size:13.5px;padding:10px 0;border-radius:10px;transition:filter .15s;flex:1;cursor:pointer}
+#card .go a:hover{filter:brightness(1.08)}
+#card .go a.ghost{flex:0 0 84px;background:transparent;border:1px solid var(--line);color:var(--mut);font-weight:500}
+#card .go a.ghost:hover{color:var(--ink);border-color:#3A4350}
+/* --- 底部时间轴 --- */
+#tl{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:20;
+  width:min(700px,calc(100vw - 28px));background:rgba(12,15,20,.88);border:1px solid var(--line);
+  border-radius:14px;padding:10px 18px 8px;backdrop-filter:blur(8px)}
+#tl .row{display:flex;align-items:center;gap:12px}
+#play{flex:none;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:#0D1218;
+  color:var(--red);font-size:15px;cursor:pointer;transition:border-color .15s}
+#play:hover{border-color:var(--red)}
+#track{position:relative;flex:1;height:46px;cursor:pointer}
+#track .base{position:absolute;left:0;right:0;top:22px;height:2px;background:var(--red-dim);border-radius:1px}
+#track .fill{position:absolute;left:0;top:22px;height:2px;background:var(--red);border-radius:1px;transition:width .4s}
+#track .seg{position:absolute;top:1px;font-size:10.5px;color:var(--mut);transform:translateX(-50%);letter-spacing:2px}
+#track .dot{position:absolute;top:19px;width:8px;height:8px;border-radius:50%;background:#232B36;
+  border:1.5px solid #4A5462;transform:translateX(-50%);transition:background .2s,border-color .2s,transform .2s}
+#track .dot:hover{transform:translateX(-50%) scale(1.5)}
+#track .dot.race{border-color:#8A4638;background:#3A1815}
+#track .dot.done{background:var(--red);border-color:var(--red)}
+#track .dot.cur{background:var(--red);border-color:#fff;transform:translateX(-50%) scale(1.7);box-shadow:0 0 10px rgba(232,69,47,.7)}
+/* --- 目录抽屉 --- */
+#list{position:absolute;top:70px;left:14px;bottom:96px;width:min(330px,calc(100vw - 28px));z-index:22;
+  background:rgba(12,15,20,.94);border:1px solid var(--line);border-radius:16px;display:none;flex-direction:column;overflow:hidden}
+#list.open{display:flex}
+#list .lh{padding:11px 15px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--mut);display:flex;justify-content:space-between;align-items:center}
+#list .lh b{color:var(--ink);font-weight:600}
+#list .items{overflow-y:auto;padding:6px}
+#list .it{display:flex;gap:10px;padding:8px 10px;border-radius:10px;cursor:pointer;align-items:baseline}
+#list .it:hover{background:#1A222D}
+#list .it.cur{background:#26181B}
+#list .it .no{flex:none;width:24px;font-size:11.5px;color:var(--red);font-weight:700}
+#list .it .no.p{color:var(--white)}
+#list .it .tt{flex:1;font-size:12.8px;line-height:1.45;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+#list .it .dt{flex:none;font-size:10.5px;color:var(--mut)}
+#list .it .dt .w{color:#E08A78}
+/* --- 其他 --- */
+#cred{position:absolute;right:14px;bottom:14px;z-index:15;font-size:10.5px;color:#5A6472;text-align:right}
+#cred a{color:#6E7885;text-decoration:none}
+#fallback{position:absolute;inset:0;display:none;place-items:center;z-index:5;color:var(--mut);font-size:14px;text-align:center;padding:20px}
+body.ready #boot{display:none}
+@media (max-width:760px){
+  #hd{max-width:calc(100vw - 90px);padding:10px 13px}
+  #hd .legend{display:none}
+  #card{top:auto;bottom:76px;right:10px;left:10px;width:auto;max-height:58vh}
+  #list{top:64px;bottom:76px}
+  #tl{bottom:8px;padding:8px 12px 6px}
+}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="fallback">地图库加载失败（CDN 不可达），目录与卡片仍可使用：<br>点击右上角「目录」浏览全部节点。</div>
+
+<div id="hd">
+  <h1>一路向北 <em>《头文字D》</em>AE86 决战路线图</h1>
+  <div class="sub">秋名山原型 · 日本群马县<b>榛名山</b>实地 · 2005 电影插曲 <b>《一路向北》</b></div>
+  <div class="legend">
+    <span class="r"><i></i>比赛节点 R1–R3：拓海的三场秋名山之战</span>
+    <span class="w"><i></i>实地地标：榛名湖（秋名湖）、山顶、神社</span>
+    <span class="l"><i></i>赛道 = 県道33号（渋川松井田線）榛名山段 · OSM 真实几何</span>
+  </div>
+  <div class="hint">← → 键切换 · 点击圆点查看比赛与地标 · 赛道线下坡方向：山顶 → 伊香保侧<br>《头文字D》© 重野秀一／讲谈社 · <a href="https://search.bilibili.com/all?keyword=%E5%A4%B4%E6%96%87%E5%AD%97D" target="_blank" rel="noopener">动画正版 B 站观看 ↗</a></div>
+</div>
+
+<div id="ctls">
+  <div class="btn" id="blist">☰ 目录</div>
+  <div class="btn" id="bplay">▶ 巡游</div>
+  <div class="btn on" id="bglobe">🌐</div>
+</div>
+
+<div id="list">
+  <div class="lh"><b>秋名山 · 全节点</b><span id="lcount"></span></div>
+  <div class="items" id="litems"></div>
+</div>
+
+<div id="card">
+  <div class="cover" id="ccover"><span class="no" id="cno">R1</span><div class="big" id="cbig"></div></div>
+  <div class="bd">
+    <div class="meta" id="cmeta"></div>
+    <h2 id="ctitle"></h2>
+    <div class="loc" id="cloc"><i></i><span id="cloct"></span></div>
+    <div class="note" id="cnote" style="display:none"></div>
+    <div class="go">
+      <a class="ghost" id="cprev">← 上一个</a>
+      <a id="clink" target="_blank" rel="noopener" style="display:none">B 站看动画 ▶</a>
+      <a class="ghost" id="cnext">下一个 →</a>
+    </div>
+  </div>
+</div>
+
+<div id="tl">
+  <div class="row">
+    <button id="play" title="播放巡游">▶</button>
+    <div id="track">
+      <div class="base"></div><div class="fill" id="tfill" style="width:0"></div>
+      <div id="tdots"></div>
+    </div>
+  </div>
+</div>
+
+<div id="cred"><a href="https://openfreemap.org" target="_blank" rel="noopener">© OpenFreeMap</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OSM 贡献者</a> · 赛道几何：OSM 県道33号</div>
+
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<script>
+// 秋名山赛道原型：群馬県道33号渋川松井田線 榛名山段（OSM 真实几何，抽稀 123 点）
+// 方向 = 下坡方向：榛名山顶缆车站一带 → 伊香保方向
+const COURSE=[[138.89633,36.48226],[138.89666,36.48344],[138.89682,36.48406],[138.89719,36.48462],[138.89788,36.4855],[138.89798,36.48591],[138.89792,36.48606],[138.89777,36.48621],[138.8965,36.48712],[138.89603,36.48791],[138.89631,36.48862],[138.89658,36.48901],[138.89678,36.48888],[138.89656,36.48853],[138.89648,36.48796],[138.89765,36.48696],[138.89861,36.48664],[138.89881,36.48649],[138.89885,36.4861],[138.89908,36.48603],[138.89914,36.4864],[138.8986,36.48725],[138.89848,36.48806],[138.89832,36.4889],[138.89893,36.48928],[138.8993,36.48957],[138.8999,36.49047],[138.90016,36.49047],[138.90022,36.49026],[138.89966,36.48941],[138.8998,36.48928],[138.90007,36.48955],[138.90034,36.48993],[138.90161,36.49057],[138.90308,36.49137],[138.90379,36.49165],[138.9058,36.49225],[138.90587,36.49251],[138.90527,36.49278],[138.90515,36.4929],[138.90501,36.49326],[138.90481,36.49331],[138.90401,36.49304],[138.90376,36.49304],[138.90314,36.49325],[138.9026,36.49312],[138.9018,36.49301],[138.90146,36.49307],[138.90096,36.49354],[138.9007,36.49361],[138.90041,36.49358],[138.90012,36.49339],[138.89985,36.49255],[138.8996,36.49254],[138.8998,36.49343],[138.90004,36.4937],[138.90045,36.49388],[138.9012,36.49395],[138.90215,36.49423],[138.90382,36.49419],[138.90428,36.49421],[138.90533,36.49436],[138.9062,36.49399],[138.90688,36.49382],[138.90774,36.49345],[138.90801,36.49346],[138.90801,36.49365],[138.90723,36.49412],[138.90669,36.49429],[138.90616,36.49445],[138.90595,36.49471],[138.90591,36.49562],[138.90567,36.49576],[138.90474,36.49577],[138.90434,36.49586],[138.90405,36.49607],[138.90394,36.49644],[138.90395,36.49798],[138.90411,36.49809],[138.90423,36.49802],[138.9043,36.49743],[138.90447,36.49733],[138.9046,36.49747],[138.90448,36.49822],[138.90451,36.4983],[138.9046,36.49834],[138.9047,36.49832],[138.90479,36.49822],[138.90487,36.49772],[138.90497,36.49765],[138.90512,36.49767],[138.90517,36.49779],[138.905,36.4985],[138.90506,36.4988],[138.90565,36.49975],[138.90584,36.49976],[138.90592,36.49965],[138.90586,36.49911],[138.90593,36.49895],[138.90606,36.49892],[138.90623,36.49905],[138.90645,36.49964],[138.9073,36.50024],[138.90739,36.50039],[138.90731,36.50056],[138.90708,36.50063],[138.90598,36.50077],[138.90543,36.50096],[138.90525,36.50114],[138.90543,36.50131],[138.90675,36.5013],[138.91022,36.50066],[138.91031,36.50034],[138.91018,36.50008],[138.90975,36.49979],[138.90966,36.49901],[138.90977,36.49869],[138.91017,36.49857],[138.91113,36.49912],[138.91145,36.49917],[138.91177,36.49909],[138.91204,36.49889],[138.91287,36.49773]];
+// 节点数据：kind race=比赛（含 course 下标 ix），place=实地地标
+const NODES=[
+{n:1,kind:"race",t:"第 1 战 · vs 高桥启介",car:"MAZDA RX-7（FD3S）",ix:12,pl:"秋名山 · 山顶起点一侧",c:1,
+ meta:["秋名山 下坡","对手 高桥启介","胜"],big:"FD3S",
+ nt:"开着送豆腐的 AE86，拓海在秋名山把 FD 甩在身后——「秋名山的白色 86」由此传开，也把高桥兄弟的目光引到了这座山。"},
+{n:2,kind:"race",t:"第 2 战 · vs 中里毅",car:"NISSAN SKYLINE GT-R（R32）",ix:59,pl:"秋名山 · 下坡中段",c:1,
+ meta:["秋名山 下坡","对手 中里毅","胜"],big:"GT-R",
+ nt:"四驱 GT-R 在直路强横，拓海使出「水沟跑法」：车轮落进排水沟，车身横着贴弯超车——AE86 以小博大的名场面。"},
+{n:3,kind:"race",t:"最终战 · vs 须藤京一",car:"MITSUBISHI LANCER EVOLUTION III",ix:105,pl:"秋名山 · 决战",c:1,
+ meta:["秋名山 决战","对手 须藤京一","胜"],big:"EVO III",
+ nt:"帝皇队的京一是压轴的最强对手。换上文太调校的新引擎后，拓海在山道上正面击败 EVO III——赛后高桥凉介递来了车队的邀请。"},
+{n:4,kind:"place",t:"榛名湖（秋名湖）",loc:[138.8747,36.4721],pl:"群马县 · 榛名山山顶西侧",c:1,
+ meta:["实地地标","火口湖 · 海拔约 1084m"],big:"榛名湖",
+ nt:"秋名湖即榛名湖——拓海与夏树约会的湖畔、文太常去钓鱼的地方。环湖一周约 6.5km，是影迷巡礼的第一站。"},
+{n:5,kind:"place",t:"榛名富士山顶",loc:[138.8778,36.4755],pl:"群马县 · 榛名山（1449m）",c:1,
+ meta:["实地地标","榛名富士 1391m"],big:"秋名山之巅",
+ nt:"秋名山的原型。最高峰扫部岳 1449m，山顶的榛名富士与山下的榛名神社同属榛名山信仰。缆车与登山道都可登顶。"},
+{n:6,kind:"place",t:"榛名山缆车站旧址",loc:[138.8995,36.4834],pl:"赛道线西端起点",c:1,
+ meta:["实地地标","赛道起点一侧"],big:"ロープウェイ迹",
+ nt:"旧榛名山缆车站。本页赛道线（県道33号榛名山段）从这里出发，沿下坡向伊香保方向延伸——拓海们出发的地方。"},
+{n:7,kind:"place",t:"榛名神社",loc:[138.8481,36.4538],pl:"群马县 · 高崎市榛名山町",c:1,
+ meta:["实地地标","山脚古社"],big:"榛名神社",
+ nt:"榛名山信仰的总本社，千年古社藏在山涧巨岩之间。从山脚沿参道拾级而上，是榛名山巡礼的收尾。"},
+{n:8,kind:"place",t:"Initial D 打卡点",loc:[138.9696,36.4635],pl:"伊香保方向沿线（位置据 OSM）",c:0,
+ meta:["粉丝打卡点","待确认"],big:"Initial D",
+ nt:"OSM 收录的 Initial D 展示物，位于伊香保方向沿线。赛道线的东端出口正朝这个方向——具体展品待实地确认。"}
+];
+NODES.forEach(d=>{if(d.kind==="race")d.loc=COURSE[d.ix];});
+
+// ---------- 基础 ----------
+const $=id=>document.getElementById(id);
+const RACES=NODES.filter(d=>d.kind==="race");
+const hasGL=typeof maplibregl!=='undefined';
+
+// ---------- 目录 ----------
+$('litems').innerHTML=NODES.map(d=>{
+  const no=(d.kind==='race'?'R':'P')+String(d.n).padStart(2,'0');
+  const tag=d.kind==='race'?'<span class="w">胜</span>':'实地';
+  return `<div class="it" data-n="${d.n}"><span class="no ${d.kind==='race'?'':'p'}">${no}</span><span class="tt">${d.t}</span><span class="dt">${tag||'&nbsp;'}</span></div>`;
+}).join('');
+$('litems').addEventListener('click',e=>{const it=e.target.closest('.it');if(it)select(+it.dataset.n)});
+
+// ---------- 时间轴 ----------
+const dotsWrap=$('tdots');
+NODES.forEach((d,i)=>{
+  const el=document.createElement('div');
+  el.className='dot'+(d.kind==='race'?' race':'');el.style.left=(i/(NODES.length-1)*100)+'%';
+  el.title=(d.kind==='race'?d.t:d.t);el.dataset.n=d.n;dotsWrap.appendChild(el);
+});
+const segLab=document.createElement('div');segLab.className='seg';segLab.textContent='三 连 战';
+segLab.style.left=(2/(NODES.length-1)*100)+'%';dotsWrap.appendChild(segLab);
+const segLab2=document.createElement('div');segLab2.className='seg';segLab2.textContent='实 地 巡 礼';
+segLab2.style.left=(5.5/(NODES.length-1)*100)+'%';dotsWrap.appendChild(segLab2);
+$('track').addEventListener('click',e=>{
+  const r=$('track').getBoundingClientRect();
+  const i=Math.max(0,Math.min(NODES.length-1,Math.round((e.clientX-r.left)/r.width*(NODES.length-1))));
+  select(NODES[i].n);e.stopPropagation();
+});
+
+// ---------- 地图 ----------
+let cur=-1,map=null,globe=true,playing=false,timer=null;
+if(hasGL){
+  map=new maplibregl.Map({container:'map',center:[138.899,36.488],zoom:11.2,pitch:0,attributionControl:false,
+    style:{version:8,projection:{type:'globe'},
+      glyphs:'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+      sources:{
+        ofm:{type:'vector',url:'https://tiles.openfreemap.org/planet'},
+        crs:{type:'geojson',data:{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:COURSE}}},
+        done:{type:'geojson',data:{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[]}}},
+        pins:{type:'geojson',data:{type:'FeatureCollection',features:NODES.map(d=>({id:d.n,properties:{n:d.n,kind:d.kind,pl:d.pl,r:d.kind==='race'?'R'+d.n:''},geometry:{type:'Point',coordinates:d.loc}}))}}
+      },
+      layers:[
+        {id:'bg',type:'background',paint:{'background-color':'#0B0E13'}},
+        {id:'water',type:'fill',source:'ofm','source-layer':'water',paint:{'fill-color':'#152230'}},
+        {id:'bnd',type:'line',source:'ofm','source-layer':'boundary',paint:{'line-color':'#222A35','line-width':.8}},
+        {id:'road',type:'line',source:'ofm','source-layer':'transportation',minzoom:8,
+          paint:{'line-color':'#252D39','line-width':['interpolate',['linear'],['zoom'],9,.6,12,1.6,14,2.6]}},
+        {id:'course-base',type:'line',source:'crs',layout:{'line-cap':'round'},paint:{'line-color':'#6E2A20','line-width':4.5,'line-blur':.4}},
+        {id:'course',type:'line',source:'crs',layout:{'line-cap':'round'},paint:{'line-color':'#E8452F','line-width':2.4}},
+        {id:'course-done',type:'line',source:'done',layout:{'line-cap':'round'},paint:{'line-color':'#FFD9CF','line-width':3.2}},
+        {id:'pin-halo',type:'circle',source:'pins',paint:{
+          'circle-radius':['case',['==',['get','kind'],'race'],10,8.5],
+          'circle-color':['case',['==',['get','kind'],'race'],'rgba(232,69,47,.18)','rgba(220,227,234,.10)'],
+          'circle-stroke-color':['case',['==',['get','kind'],'race'],'#E8452F','rgba(220,227,234,.85)'],
+          'circle-stroke-width':1.5}},
+        {id:'pin-dot',type:'circle',source:'pins',paint:{
+          'circle-radius':['case',['==',['get','kind'],'race'],5,4.2],
+          'circle-color':['case',['==',['get','kind'],'race'],'#E8452F','#0B0E13']}},
+        {id:'pin-no',type:'symbol',source:'pins',filter:['has','r'],
+          layout:{'text-field':['get','r'],'text-font':['Noto Sans Bold'],'text-size':10.5,'text-offset':[0,-1.7],'text-anchor':'bottom'},
+          paint:{'text-color':'#FFD9CF','text-halo-color':'rgba(11,14,19,.9)','text-halo-width':1.4}},
+        {id:'pin-active',type:'symbol',source:'pins',filter:['==',['get','n'],-1],
+          layout:{'text-field':['get','pl'],'text-font':['Noto Sans Bold'],'text-size':13.5,'text-anchor':'left','text-offset':[1,0],'text-allow-overlap':true},
+          paint:{'text-color':'#EFEAE0','text-halo-color':'rgba(11,14,19,.95)','text-halo-width':1.8}},
+        {id:'plabels',type:'symbol',source:'ofm','source-layer':'place',
+          filter:['in',['get','class'],['literal',['country','city','town']]],maxzoom:10,
+          layout:{'text-field':['get','name'],'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],6,9,9,13]},
+          paint:{'text-color':'#6E7885','text-halo-color':'rgba(11,14,19,.85)','text-halo-width':1.2}}
+      ]}});
+  map.on('load',()=>markReady());
+  map.on('click','pin-dot',e=>select(e.features[0].properties.n));
+  map.on('mouseenter','pin-dot',()=>map.getCanvas().style.cursor='pointer');
+  map.on('mouseleave','pin-dot',()=>map.getCanvas().style.cursor='');
+}else{
+  $('fallback').style.display='grid';markReady();
+}
+let __ready=false;
+function markReady(){if(__ready)return;__ready=true;document.body.classList.add('ready')}
+setTimeout(markReady,3000);
+
+// ---------- 选中 ----------
+function select(n,opts){
+  opts=opts||{};
+  const i=NODES.findIndex(d=>d.n===n);if(i<0)return;
+  const wasFirst=cur<0;cur=i;const d=NODES[i];
+  // 卡片
+  const cover=$('ccover');cover.classList.toggle('place',d.kind!=='race');
+  $('cno').textContent=d.kind==='race'?'R'+d.n:'实地';
+  $('cno').classList.toggle('place',d.kind!=='race');
+  $('cbig').innerHTML=`<small>${d.kind==='race'?'RIVAL MACHINE':'SPOT'}</small>${d.big}`;
+  $('cmeta').innerHTML=d.meta.map(m=>`<span${m==='胜'?' class="win"':''}>${m}</span>`).join('');
+  $('ctitle').textContent=d.t;
+  $('cloc').classList.toggle('p',d.kind!=='race');
+  $('cloct').textContent=d.pl;
+  if(d.nt){$('cnote').style.display='';$('cnote').textContent=d.nt}else $('cnote').style.display='none';
+  const lk=$('clink');
+  if(d.kind==='race'){lk.style.display='';lk.href='https://search.bilibili.com/all?keyword=%E5%A4%B4%E6%96%87%E5%AD%97D'}else lk.style.display='none';
+  $('cprev').style.opacity=d.n>1?1:.3;$('cnext').style.opacity=d.n<NODES.length?1:.3;
+  $('card').classList.add('open');
+  // 目录高亮
+  document.querySelectorAll('#list .it').forEach(el=>el.classList.toggle('cur',+el.dataset.n===d.n));
+  const cit=document.querySelector(`#list .it[data-n="${d.n}"]`);
+  if(cit&&cit.scrollIntoView)cit.scrollIntoView({block:'nearest'});
+  $('lcount').textContent='当前 '+(d.kind==='race'?'R'+d.n:'地标'+d.n);
+  // 时间轴
+  document.querySelectorAll('#tdots .dot').forEach(el=>{
+    const dn=+el.dataset.n;el.classList.toggle('cur',dn===d.n);el.classList.toggle('done',dn<d.n&&dn!==d.n);
+  });
+  $('tfill').style.width=(i/(NODES.length-1)*100)+'%';
+  // 地图
+  if(map){
+    const doneSrc=map.getSource('done');
+    if(doneSrc){
+      if(d.kind==='race')doneSrc.setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:COURSE.slice(0,d.ix+1)}});
+      else doneSrc.setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[]}});
+    }
+    const lbl=map.getLayer('pin-active');
+    if(lbl)map.setFilter('pin-active',['==',['get','n'],d.n]);
+    if(!opts.silentFly){
+      const z=opts.play?13.0:Math.max(map.getZoom(),12.6);
+      map.flyTo({center:d.loc,zoom:z,duration:wasFirst?3400:2600,
+        padding:{right:window.innerWidth>760?380:0,top:60,bottom:110}});
+    }
+  }
+  history.replaceState(null,'','#r='+d.n);
+}
+$('cprev').onclick=()=>{if(cur>0)select(NODES[cur-1].n)};
+$('cnext').onclick=()=>{if(cur<NODES.length-1)select(NODES[cur+1].n)};
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft'&&cur>0)select(NODES[cur-1].n);
+  if(e.key==='ArrowRight'&&cur<NODES.length-1)select(NODES[cur+1].n);
+});
+
+// ---------- 巡游 ----------
+function setPlay(on){
+  playing=on;clearInterval(timer);
+  $('bplay').textContent=on?'⏸ 巡游':'▶ 巡游';$('bplay').classList.toggle('on',on);
+  $('play').textContent=on?'⏸':'▶';
+  if(on){
+    if(cur<0||cur>=NODES.length-1)select(NODES[0].n,{play:true});
+    else select(NODES[cur].n,{play:true});
+    timer=setInterval(()=>{if(cur>=NODES.length-1){setPlay(false);return}select(NODES[cur+1].n,{play:true})},6000);
+  }
+}
+$('bplay').onclick=()=>setPlay(!playing);
+$('play').onclick=()=>setPlay(!playing);
+
+// ---------- 其他控件 ----------
+$('blist').onclick=()=>{
+  const l=$('list'),open=l.classList.toggle('open');
+  if(open&&window.innerWidth>760){l.style.top=Math.round($('hd').getBoundingClientRect().bottom+10)+'px'}
+};
+window.addEventListener('resize',()=>{const l=$('list');
+  if(l.classList.contains('open')&&window.innerWidth>760){l.style.top=Math.round($('hd').getBoundingClientRect().bottom+10)+'px'}});
+$('bglobe').onclick=()=>{globe=!globe;$('bglobe').classList.toggle('on',globe);
+  if(map&&map.setProjection)map.setProjection({type:globe?'globe':'mercator'});};
+
+// ---------- 深链 ----------
+const m=location.hash.match(/r=(\d+)/);
+if(m){const d=NODES.find(x=>x.n===+m[1]);if(d)select(d.n);}
+</script>
+</body>
+</html>
