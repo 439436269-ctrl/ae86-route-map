@@ -134,7 +134,7 @@ body.ready #boot{display:none}
   <div class="legend">
     <span class="r"><i></i>比赛节点 R1–R3：拓海的三场秋名山之战</span>
     <span class="w"><i></i>实地地标：榛名湖（秋名湖）、山顶、神社</span>
-    <span class="l"><i></i>赛道 = 県道33号（渋川松井田線）榛名山段 · OSM 真实几何</span>
+    <span class="l"><i></i>赛道 = 県道33号榛名山段（OSM）· 白线=已跑进度 · 流光=当前赛段</span>
     <span class="hp"><i></i>发卡弯：赛道实测 ≥80° 急弯 6 处（含 4 处 >100°）</span>
   </div>
   <div class="hint">← → 键切换 · 点击圆点查看比赛与地标 · 赛道线下坡方向：山顶 → 伊香保侧<br>《头文字D》© 重野秀一／讲谈社 · <a href="https://search.bilibili.com/all?keyword=%E5%A4%B4%E6%96%87%E5%AD%97D" target="_blank" rel="noopener">动画正版 B 站观看 ↗</a></div>
@@ -264,6 +264,7 @@ if(hasGL){
         ofm:{type:'vector',url:'https://tiles.openfreemap.org/planet'},
         crs:{type:'geojson',data:{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:COURSE}}},
         done:{type:'geojson',data:{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[]}}},
+        seg:{type:'geojson',data:{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[]}}},
         pins:{type:'geojson',data:{type:'FeatureCollection',features:NODES.map(d=>({id:d.n,properties:{n:d.n,kind:d.kind,pl:d.pl,r:d.kind==='race'?'R'+d.n:''},geometry:{type:'Point',coordinates:d.loc}}))}},
         hp:{type:'geojson',data:{type:'FeatureCollection',features:HAIRPINS.map(h=>({properties:{deg:h.d+''},geometry:{type:'Point',coordinates:h.at}}))}}
       },
@@ -275,7 +276,9 @@ if(hasGL){
           paint:{'line-color':'#252D39','line-width':['interpolate',['linear'],['zoom'],9,.6,12,1.6,14,2.6]}},
         {id:'course-base',type:'line',source:'crs',layout:{'line-cap':'round'},paint:{'line-color':'#6E2A20','line-width':4.5,'line-blur':.4}},
         {id:'course',type:'line',source:'crs',layout:{'line-cap':'round'},paint:{'line-color':'#E8452F','line-width':2.4}},
-        {id:'course-done',type:'line',source:'done',layout:{'line-cap':'round'},paint:{'line-color':'#FFD9CF','line-width':3.2}},
+        {id:'course-done',type:'line',source:'done',layout:{'line-cap':'round'},paint:{'line-color':'rgba(255,217,207,.34)','line-width':2.2}},
+        {id:'seg-glow',type:'line',source:'seg',layout:{'line-cap':'round'},paint:{'line-color':'rgba(255,107,74,.30)','line-width':8}},
+        {id:'seg-line',type:'line',source:'seg',layout:{'line-cap':'round'},paint:{'line-color':'#FFD9CF','line-width':3.6,'line-dasharray':[2,1.5]}},
         {id:'hp-dot',type:'circle',source:'hp',minzoom:11,paint:{
           'circle-radius':3.6,
           'circle-color':'#EFEAE0',
@@ -309,23 +312,31 @@ if(hasGL){
           layout:{'text-field':['get','name'],'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],6,9,9,13]},
           paint:{'text-color':'#6E7885','text-halo-color':'rgba(11,14,19,.85)','text-halo-width':1.2}}
       ]}});
-  map.on('load',()=>{markReady();startPulse();});
+  map.on('load',()=>{markReady();startFX();});
   map.on('click','pin-dot',e=>select(e.features[0].properties.n));
   map.on('mouseenter','pin-dot',()=>map.getCanvas().style.cursor='pointer');
   map.on('mouseleave','pin-dot',()=>map.getCanvas().style.cursor='');
 }else{
   $('fallback').style.display='grid';markReady();
 }
-// 当前钉雷达脉冲：半径扩散 + 渐隐，每 1.6s 一轮
-function startPulse(){
-  const T=1600;
-  (function frame(){
-    if(!map||!map.getLayer('pin-pulse')){requestAnimationFrame(frame);return}
-    const p=(Date.now()%T)/T;
-    map.setPaintProperty('pin-pulse','circle-radius',9+p*24);
-    map.setPaintProperty('pin-pulse','circle-opacity',.85*(1-p)*(1-p));
+// 当前钉雷达脉冲 + 当前赛段流光（蚂蚁线步进）
+const DASH_SEQ=[[0,4,3],[.5,4,2.5],[1,4,2],[1.5,4,1.5],[2,4,1],[2.5,4,.5],[3,4,0],[0,.5,3,3.5],[0,1,3,3],[0,1.5,3,2.5],[0,2,3,2],[0,2.5,3,1.5],[0,3,3,1],[0,3.5,3,.5]];
+function startFX(){
+  const T=1600,DASH_MS=55;let lastDash=0,dashStep=0;
+  (function frame(now){
+    if(!map)return;
+    const pulse=map.getLayer('pin-pulse');
+    if(pulse){
+      const p=(Date.now()%T)/T;
+      map.setPaintProperty('pin-pulse','circle-radius',9+p*24);
+      map.setPaintProperty('pin-pulse','circle-opacity',.85*(1-p)*(1-p));
+    }
+    if(now-lastDash>DASH_MS&&map.getLayer('seg-line')){
+      lastDash=now;dashStep=(dashStep+1)%DASH_SEQ.length;
+      map.setPaintProperty('seg-line','line-dasharray',DASH_SEQ[dashStep]);
+    }
     requestAnimationFrame(frame);
-  })();
+  })(0);
 }
 let __ready=false;
 function markReady(){if(__ready)return;__ready=true;document.body.classList.add('ready')}
@@ -363,9 +374,15 @@ function select(n,opts){
   // 地图
   if(map){
     const doneSrc=map.getSource('done');
-    if(doneSrc){
-      if(d.kind==='race')doneSrc.setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:COURSE.slice(0,d.ix+1)}});
-      else doneSrc.setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[]}});
+    const segSrc=map.getSource('seg');
+    if(d.kind==='race'){
+      // 已跑进度 = 起点→当前；当前赛段 = 上一战→当前（流光高亮）
+      const prevIx=RACES.filter(r=>r.ix<d.ix).map(r=>r.ix).pop()||0;
+      if(doneSrc)doneSrc.setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:COURSE.slice(0,d.ix+1)}});
+      if(segSrc)segSrc.setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:COURSE.slice(prevIx,d.ix+1)}});
+    }else{
+      // 实地巡礼：当前赛段熄灭，已跑进度保留
+      if(segSrc)segSrc.setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[]}});
     }
     const lbl=map.getLayer('pin-active');
     if(lbl)map.setFilter('pin-active',['==',['get','n'],d.n]);
